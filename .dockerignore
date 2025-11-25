@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+
+# Virtual environments/variables
+venv/
+.venv/
+env/
+.env
+
+# Git
+.git/
+.gitignore
+
+# Logs
+*.log
+logs/
+weather_history.json
+
+# Documentation
+README.md
+*.md
+
+# CI/CD
+Jenkinsfile
+
+# Kubernetes manifests
+k8s/
+*.yaml
+*.yml
+
+# Temporary files
+*.bak
+*.swp
+*.tmp
+*~
+
+# Secrets
+*.pem
+*.key
+*.crt

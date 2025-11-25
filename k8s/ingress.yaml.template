@@ -1,0 +1,31 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: weather-app
+  namespace: prod
+  labels:
+    app: weather-app
+  annotations:
+    # AWS ALB controller creates Application Load Balancer
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    # Target pods by IP (not NodePort) for better performance
+    alb.ingress.kubernetes.io/target-type: ip
+    # Listen on both HTTP (80) and HTTPS (443)
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    # Automatically redirect HTTP to HTTPS
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    # ACM certificate for HTTPS (wildcard or specific subdomain)
+    alb.ingress.kubernetes.io/certificate-arn: __CERTIFICATE_ARN__
+spec:
+  ingressClassName: alb
+  rules:
+    - host: __APP_DOMAIN__
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: weather-app
+                port:
+                  number: 80

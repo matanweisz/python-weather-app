@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: weather-app
+  namespace: prod
+  labels:
+    app: weather-app
+spec:
+  # Run 2 replicas for high availability
+  replicas: 2
+  selector:
+    matchLabels:
+      app: weather-app
+  template:
+    metadata:
+      labels:
+        app: weather-app
+    spec:
+      # Pod-level security context (applies to all containers)
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      imagePullSecrets:
+      - name: dockerhub-secret
+      containers:
+      - name: weather-app
+        # Image updated by Jenkins pipeline during deployments
+        image: matanweisz/weather_app:latest
+        ports:
+        - containerPort: 5000
+          name: http
+
+        # Restart pod if health check fails (checks if app is alive)
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+
+        # Remove from service if not ready (checks if app can serve traffic)
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+
+        # Resource limits ensure predictable performance
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+
+        env:
+        - name: PORT
+          value: "5000"
+        - name: LOG_DIR
+          value: "/app/logs"
+
+        # Container-level security: run as non-root, drop all capabilities
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          # False because app needs to write logs
+          readOnlyRootFilesystem: false

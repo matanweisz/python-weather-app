@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+
+# Virtual environments/variables
+venv/
+.venv/
+env/
+.env
+
+# Logs
+*.log
+logs/
+weather_history.json
+
+# Temporary files
+*.bak
+*.swp
+*.tmp
+*~
+
+# Secrets
+*.pem
+*.key
+*.crt
