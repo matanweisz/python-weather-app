@@ -1,13 +1,9 @@
-// =============================================================================
-// CI Pipeline for Weather App
-// =============================================================================
-// Builds, tests, and pushes container images to ECR, then updates GitOps repo
-// for ArgoCD to deploy automatically.
+// CI\CD Pipeline for my python Weather App project:
+// This pipeline builds, tests, and pushes container images to AWS ECR, then updates GitOps repo for ArgoCD to deploy automatically.
 //
 // Prerequisites:
 // - Jenkins service account with IRSA role for ECR push
 // - GitHub token in Jenkins credentials (id: 'github-token')
-// =============================================================================
 
 pipeline {
     agent {
@@ -94,7 +90,7 @@ spec:
     }
 
     triggers {
-        // Poll SCM every 5 minutes (for private Jenkins without webhooks)
+        // Poll SCM every 5 minutes
         pollSCM('H/5 * * * *')
     }
 
@@ -113,9 +109,6 @@ spec:
     }
 
     stages {
-        // =====================================================================
-        // Stage 1: Checkout
-        // =====================================================================
         stage('Checkout') {
             steps {
                 echo "Checking out source code..."
@@ -131,11 +124,10 @@ spec:
             }
         }
 
-        // =====================================================================
-        // Stage 2: Static Analysis (Parallel)
-        // =====================================================================
+        // Static Analysis (Runs in parallel)
         stage('Static Analysis') {
             parallel {
+                // Check Dockerfile syntax
                 stage('Lint Dockerfile') {
                     steps {
                         container('hadolint') {
@@ -145,6 +137,7 @@ spec:
                     }
                 }
 
+                // Check Python syntax and security
                 stage('Python Analysis') {
                     steps {
                         container('python') {
@@ -162,9 +155,7 @@ spec:
             }
         }
 
-        // =====================================================================
-        // Stage 3: Build Container Image
-        // =====================================================================
+        // Building docker container image using Buildah for daemonless build
         stage('Build Image') {
             steps {
                 container('buildah') {
@@ -175,14 +166,12 @@ spec:
                             -t ${ECR_REPOSITORY}:${IMAGE_TAG} \
                             .
                     """
-                    echo "✓ Image built: ${ECR_REPOSITORY}:${IMAGE_TAG}"
+                    echo "Image built: ${ECR_REPOSITORY}:${IMAGE_TAG}"
                 }
             }
         }
 
-        // =====================================================================
-        // Stage 4: Push to ECR
-        // =====================================================================
+        // Push the container image to AWS ECR using Buildah
         stage('Push to ECR') {
             steps {
                 container('buildah') {
@@ -208,9 +197,7 @@ spec:
             }
         }
 
-        // =====================================================================
-        // Stage 5: Update GitOps Repository
-        // =====================================================================
+        // Updating the GitOps repo to deploy the new image using yq
         stage('Update GitOps') {
             steps {
                 container('git-yq') {
@@ -221,8 +208,8 @@ spec:
                             apk add --no-cache yq
 
                             # Configure Git
-                            git config --global user.name "Jenkins CI"
-                            git config --global user.email "jenkins@matanweisz.xyz"
+                            git config --global user.name "jenkins-user"
+                            git config --global user.email "jenkins-user@matanweisz.xyz"
 
                             # Clone GitOps repo using token
                             git clone https://${GITHUB_TOKEN}@github.com/matanweisz/gitops-project.git gitops-repo
@@ -234,24 +221,22 @@ spec:
 
                             # Commit and push
                             git add ${GITOPS_VALUES_PATH}
-                            git commit -m "chore: Update weather-app image to ${IMAGE_TAG}
+                            git commit -m "Jenkins updated the weather-app image to ${IMAGE_TAG}
 
 Built from commit: ${GIT_COMMIT}
-Jenkins build: ${BUILD_NUMBER}
+Jenkins build number: ${BUILD_NUMBER}
 Image: ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
 
                             git push origin main
                         '''
-                        echo "✓ GitOps repository updated successfully"
+                        echo "GitOps repository updated successfully"
                     }
                 }
             }
         }
     }
 
-    // =========================================================================
     // Post-Build Actions
-    // =========================================================================
     post {
         success {
             echo """
@@ -264,6 +249,8 @@ GitOps:    Updated successfully
 Next:      ArgoCD will deploy automatically (~5 min)
 
 Check ArgoCD: https://argocd.matanweisz.xyz
+Check the GitOps repo: https://github.com/matanweisz/gitops-project
+Check the website: https://matanweisz.xyz
 """
         }
 
