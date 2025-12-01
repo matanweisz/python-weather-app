@@ -88,6 +88,11 @@ spec:
     image: amazon/aws-cli:2.17.6
     command: ['cat']
     tty: true
+    env:
+    - name: AWS_ROLE_ARN
+      value: arn:aws:iam::536697238781:role/foundation-terraform-project-jenkins-ecr
+    - name: AWS_WEB_IDENTITY_TOKEN_FILE
+      value: /var/run/secrets/eks.amazonaws.com/serviceaccount/token
     resources:
       requests:
         cpu: "100m"
@@ -98,12 +103,22 @@ spec:
     volumeMounts:
     - name: shared-data
       mountPath: /data
+    - name: aws-iam-token
+      mountPath: /var/run/secrets/eks.amazonaws.com/serviceaccount
+      readOnly: true
 
   volumes:
   - name: varlibcontainers
     emptyDir: {}
   - name: shared-data
     emptyDir: {}
+  - name: aws-iam-token
+    projected:
+      sources:
+      - serviceAccountToken:
+          audience: sts.amazonaws.com
+          expirationSeconds: 86400
+          path: token
 """
         }
     }
@@ -196,10 +211,28 @@ spec:
         stage('Push to ECR') {
             steps {
                 script {
-                    echo "Authenticating to ECR..."
+                    echo "Authenticating to ECR with IRSA..."
                     container('aws') {
-                        sh "echo '--- AWS ENVIRONMENT VARIABLES ---'; env | grep AWS || true; echo '--- END AWS ENVIRONMENT VARIABLES ---'"
-                        sh "aws ecr get-login-password --region ${AWS_REGION} > /data/ecr_password"
+                        sh """
+                            echo '=== AWS IRSA Configuration ==='
+                            echo "AWS_ROLE_ARN: \${AWS_ROLE_ARN}"
+                            echo "AWS_WEB_IDENTITY_TOKEN_FILE: \${AWS_WEB_IDENTITY_TOKEN_FILE}"
+                            echo "AWS_REGION: \${AWS_REGION}"
+
+                            if [ -f "\${AWS_WEB_IDENTITY_TOKEN_FILE}" ]; then
+                                echo "✓ Service account token exists"
+                            else
+                                echo "✗ ERROR: Service account token not found!"
+                                exit 1
+                            fi
+
+                            echo '=== Testing AWS STS Credentials ==='
+                            aws sts get-caller-identity
+
+                            echo '=== Generating ECR Login Password ==='
+                            aws ecr get-login-password --region ${AWS_REGION} > /data/ecr_password
+                            echo "✓ ECR login password generated"
+                        """
                     }
 
                     echo "Pushing image with Buildah..."
@@ -215,7 +248,7 @@ spec:
                             buildah push --storage-driver overlay ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}
                         """
                     }
-                    echo "The image ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG} has been pushed to ECR"
+                    echo "✓ Image ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG} pushed successfully"
                 }
             }
         }
