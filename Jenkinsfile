@@ -72,7 +72,7 @@ spec:
         cpu: "200m"
         memory: "256Mi"
 
-  - name: git-yq
+  - name: git
     image: alpine/git:latest
     command: ['cat']
     tty: true
@@ -212,7 +212,7 @@ spec:
                             buildah push --storage-driver overlay ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}
                         """
                     }
-                    echo "✓ Image pushed: ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+                    echo "The image ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG} has been pushed to ECR"
                 }
             }
         }
@@ -220,7 +220,7 @@ spec:
         // Updating the GitOps repo to deploy the new image using yq
         stage('Update GitOps') {
             steps {
-                container('git-yq') {
+                container('git') {
                     withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
                         echo "Updating GitOps repository..."
                         sh '''
@@ -231,8 +231,8 @@ spec:
                             git config --global user.name "jenkins-user"
                             git config --global user.email "jenkins-user@matanweisz.xyz"
 
-                            # Clone GitOps repo using token
-                            git clone https://${GITHUB_TOKEN}@github.com/matanweisz/gitops-project.git gitops-repo
+                            # Clone GitOps repo using token (shallow clone for efficiency)
+                            git clone --depth 1 https://${GITHUB_TOKEN}@github.com/matanweisz/gitops-project.git gitops-repo
                             cd gitops-repo
 
                             # Update image tag
