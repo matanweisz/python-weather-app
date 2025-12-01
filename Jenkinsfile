@@ -205,7 +205,7 @@ spec:
                             -t ${ECR_REPOSITORY}:${IMAGE_TAG} \\
                             .
                     """
-                    echo "✓ Image built: ${ECR_REPOSITORY}:${IMAGE_TAG}"
+                    echo "Image built: ${ECR_REPOSITORY}:${IMAGE_TAG}"
                 }
             }
         }
@@ -217,24 +217,12 @@ spec:
                     echo "Authenticating to ECR with IRSA..."
                     container('aws') {
                         sh """
-                            echo '=== AWS IRSA Configuration ==='
-                            echo "AWS_ROLE_ARN: \${AWS_ROLE_ARN}"
-                            echo "AWS_WEB_IDENTITY_TOKEN_FILE: \${AWS_WEB_IDENTITY_TOKEN_FILE}"
-                            echo "AWS_REGION: \${AWS_REGION}"
-
-                            if [ -f "\${AWS_WEB_IDENTITY_TOKEN_FILE}" ]; then
-                                echo "✓ Service account token exists"
-                            else
-                                echo "✗ ERROR: Service account token not found!"
-                                exit 1
-                            fi
-
-                            echo '=== Testing AWS STS Credentials ==='
+                            echo 'Testing AWS STS Credentials...'
                             aws sts get-caller-identity
 
-                            echo '=== Generating ECR Login Password ==='
+                            echo 'Generating ECR Login Password...'
                             aws ecr get-login-password --region ${AWS_REGION} > /data/ecr_password
-                            echo "✓ ECR login password generated"
+                            echo "ECR login password generated"
                         """
                     }
 
@@ -254,7 +242,7 @@ spec:
                                 ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}
                         """
                     }
-                    echo "✓ Image pushed: ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+                    echo "Image pushed: ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
                 }
             }
         }
@@ -295,7 +283,7 @@ Image: ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
 
                             git push origin main
                         '''
-                        echo "✓ GitOps repository updated"
+                        echo "GitOps repository updated"
                     }
                 }
             }
@@ -328,11 +316,6 @@ Check the website: https://matanweisz.xyz
 
 Check logs above for error details.
 """
-        }
-
-        cleanup {
-            // Clean up cloned GitOps repository
-            sh 'rm -rf gitops-repo || true'
         }
     }
 }
