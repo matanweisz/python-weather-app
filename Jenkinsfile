@@ -30,6 +30,9 @@ spec:
     image: quay.io/buildah/stable:v1.37
     command: ['cat']
     tty: true
+    env:
+    - name: STORAGE_DRIVER
+      value: overlay
     securityContext:
       runAsUser: 1000
       runAsGroup: 1000
@@ -190,19 +193,19 @@ spec:
             }
         }
 
-        // Building docker container image using Buildah for daemonless build
+        // Build container image using Buildah (rootless, daemonless)
         stage('Build Image') {
             steps {
                 container('buildah') {
                     echo "Building container image with Buildah..."
                     sh """
-                        buildah --storage-driver overlay bud \
-                            --format docker \
-                            -f Dockerfile \
-                            -t ${ECR_REPOSITORY}:${IMAGE_TAG} \
+                        buildah --storage-driver \${STORAGE_DRIVER} bud \\
+                            --format docker \\
+                            -f Dockerfile \\
+                            -t ${ECR_REPOSITORY}:${IMAGE_TAG} \\
                             .
                     """
-                    echo "Image built: ${ECR_REPOSITORY}:${IMAGE_TAG}"
+                    echo "✓ Image built: ${ECR_REPOSITORY}:${IMAGE_TAG}"
                 }
             }
         }
@@ -238,54 +241,61 @@ spec:
                     echo "Pushing image with Buildah..."
                     container('buildah') {
                         sh """
-                            # Authenticate to ECR using the password from the shared volume
+                            # Authenticate to ECR
                             cat /data/ecr_password | buildah login --username AWS --password-stdin ${ECR_REGISTRY}
 
                             # Tag with full ECR path
-                            buildah tag ${ECR_REPOSITORY}:${IMAGE_TAG} ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}
+                            buildah --storage-driver \${STORAGE_DRIVER} tag \\
+                                ${ECR_REPOSITORY}:${IMAGE_TAG} \\
+                                ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}
 
-                            # Push image
-                            buildah push --storage-driver overlay ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}
+                            # Push to ECR
+                            buildah --storage-driver \${STORAGE_DRIVER} push \\
+                                ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}
                         """
                     }
-                    echo "✓ Image ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG} pushed successfully"
+                    echo "✓ Image pushed: ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
                 }
             }
         }
 
-        // Updating the GitOps repo to deploy the new image using yq
+        // Update GitOps repository with new image tag
         stage('Update GitOps') {
             steps {
                 container('git') {
-                    withCredentials([string(credentialsId: 'github-creds', variable: 'GITHUB_TOKEN')]) {
+                    withCredentials([usernamePassword(
+                        credentialsId: 'github-creds',
+                        usernameVariable: 'GIT_USERNAME',
+                        passwordVariable: 'GIT_PASSWORD'
+                    )]) {
                         echo "Updating GitOps repository..."
                         sh '''
                             # Install yq for YAML manipulation
                             apk add --no-cache yq
 
                             # Configure Git
-                            git config --global user.name "jenkins-user"
-                            git config --global user.email "jenkins-user@matanweisz.xyz"
+                            git config --global user.name "Jenkins CI"
+                            git config --global user.email "jenkins@matanweisz.xyz"
 
-                            # Clone GitOps repo using token (shallow clone for efficiency)
-                            git clone --depth 1 https://${GITHUB_TOKEN}@github.com/matanweisz/gitops-project.git gitops-repo
+                            # Clone GitOps repo (shallow clone for efficiency)
+                            git clone --depth 1 https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/matanweisz/gitops-project.git gitops-repo
                             cd gitops-repo
 
-                            # Update image tag
+                            # Update image tag in values file
                             echo "Updating image tag to: ${IMAGE_TAG}"
                             yq eval -i '.image.tag = "'${IMAGE_TAG}'"' ${GITOPS_VALUES_PATH}
 
-                            # Commit and push
+                            # Commit and push changes
                             git add ${GITOPS_VALUES_PATH}
-                            git commit -m "Jenkins updated the weather-app image to ${IMAGE_TAG}
+                            git commit -m "ci: Update weather-app image to ${IMAGE_TAG}
 
-Built from commit: ${GIT_COMMIT}
-Jenkins build number: ${BUILD_NUMBER}
+Build: ${BUILD_NUMBER}
+Commit: ${GIT_COMMIT}
 Image: ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
 
                             git push origin main
                         '''
-                        echo "GitOps repository updated successfully"
+                        echo "✓ GitOps repository updated"
                     }
                 }
             }
