@@ -3,7 +3,7 @@
 //
 // Prerequisites:
 // - Jenkins service account with IRSA role for ECR push
-// - GitHub token in Jenkins credentials (id: 'github-token')
+// - GitHub token in Jenkins credentials (id: 'github-creds')
 
 pipeline {
     agent {
@@ -163,6 +163,7 @@ spec:
                             echo "Running Python static analysis..."
                             sh '''
                                 pip install --quiet pylint bandit
+                                pip install --quiet -r requirements.txt
                                 echo "Running pylint..."
                                 pylint app.py || true
                                 echo "Running bandit security scan..."
@@ -181,6 +182,7 @@ spec:
                     echo "Building container image with Buildah..."
                     sh """
                         buildah --storage-driver overlay bud \
+                            --format docker \
                             -f Dockerfile \
                             -t ${ECR_REPOSITORY}:${IMAGE_TAG} \
                             .
@@ -196,6 +198,7 @@ spec:
                 script {
                     echo "Authenticating to ECR..."
                     container('aws') {
+                        sh "echo '--- AWS ENVIRONMENT VARIABLES ---'; env | grep AWS || true; echo '--- END AWS ENVIRONMENT VARIABLES ---'"
                         sh "aws ecr get-login-password --region ${AWS_REGION} > /data/ecr_password"
                     }
 
@@ -221,7 +224,7 @@ spec:
         stage('Update GitOps') {
             steps {
                 container('git') {
-                    withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
+                    withCredentials([string(credentialsId: 'github-creds', variable: 'GITHUB_TOKEN')]) {
                         echo "Updating GitOps repository..."
                         sh '''
                             # Install yq for YAML manipulation
