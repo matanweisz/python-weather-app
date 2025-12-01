@@ -139,7 +139,7 @@ spec:
 
         // GitOps Configuration
         GITOPS_REPO = 'https://github.com/matanweisz/gitops-project.git'
-        GITOPS_VALUES_PATH = 'apps/weather-app/values.yaml'
+        GITOPS_VALUES_PATH = 'apps/applications/weather-app/values.yaml'
 
         // Build Configuration
         IMAGE_TAG = "${BUILD_NUMBER}-${GIT_COMMIT.take(8)}"
