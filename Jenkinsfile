@@ -45,6 +45,8 @@ spec:
     volumeMounts:
     - name: varlibcontainers
       mountPath: /var/lib/containers
+    - name: shared-data
+      mountPath: /data
 
   - name: python
     image: python:3.11-slim
@@ -82,8 +84,25 @@ spec:
         cpu: "200m"
         memory: "256Mi"
 
+  - name: aws
+    image: amazon/aws-cli:2.17.6
+    command: ['cat']
+    tty: true
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
+    volumeMounts:
+    - name: shared-data
+      mountPath: /data
+
   volumes:
   - name: varlibcontainers
+    emptyDir: {}
+  - name: shared-data
     emptyDir: {}
 """
         }
@@ -171,27 +190,28 @@ spec:
             }
         }
 
-        // Push the container image to AWS ECR using Buildah
+        // Push the container image to AWS ECR
         stage('Push to ECR') {
             steps {
-                container('buildah') {
-                    echo "Authenticating to ECR and pushing image..."
-                    sh '''
-                        # Install AWS CLI in buildah container (temporary, lightweight)
-                        microdnf install -y aws-cli || dnf install -y aws-cli || yum install -y aws-cli
+                script {
+                    echo "Authenticating to ECR..."
+                    container('aws') {
+                        sh "aws ecr get-login-password --region ${AWS_REGION} > /data/ecr_password"
+                    }
 
-                        # Authenticate to ECR and push image (no temp files, piped directly)
-                        aws ecr get-login-password --region ${AWS_REGION} | \
-                            buildah login --username AWS --password-stdin ${ECR_REGISTRY}
+                    echo "Pushing image with Buildah..."
+                    container('buildah') {
+                        sh """
+                            # Authenticate to ECR using the password from the shared volume
+                            cat /data/ecr_password | buildah login --username AWS --password-stdin ${ECR_REGISTRY}
 
-                        # Tag with full ECR path
-                        buildah tag ${ECR_REPOSITORY}:${IMAGE_TAG} \
-                            ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}
+                            # Tag with full ECR path
+                            buildah tag ${ECR_REPOSITORY}:${IMAGE_TAG} ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}
 
-                        # Push image
-                        buildah push --storage-driver overlay \
-                            ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}
-                    '''
+                            # Push image
+                            buildah push --storage-driver overlay ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}
+                        """
+                    }
                     echo "✓ Image pushed: ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
                 }
             }
