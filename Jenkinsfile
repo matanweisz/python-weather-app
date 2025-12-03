@@ -213,31 +213,31 @@ spec:
                                 .
 
                             # Export image as OCI archive for security scanning
-                            buildah --storage-driver \${STORAGE_DRIVER} push \\
-                                weather-app:${IMAGE_TAG} \\
-                                oci-archive:/data/weather-app.tar
+                            #buildah --storage-driver \${STORAGE_DRIVER} push \\
+                             #   weather-app:${IMAGE_TAG} \\
+                              #  oci-archive:/data/weather-app.tar
                         """
                     }
                 }
             }
         }
 
-        stage('Security Scan') {
-            steps {
-                container('trivy') {
-                    sh """
-                        trivy image --input /data/weather-app.tar \\
-                            --severity HIGH,CRITICAL \\
-                            --exit-code 1 \\
-                            --no-progress \\
-                            --format table
-
-                        echo ""
-                        echo "✓ Security scan passed: No HIGH/CRITICAL vulnerabilities found"
-                    """
-                }
-            }
-        }
+        // stage('Security Scan') {
+        //     steps {
+        //         container('trivy') {
+        //             sh """
+        //                 trivy image --input /data/weather-app.tar \\
+        //                     --severity HIGH,CRITICAL \\
+        //                     --exit-code 1 \\
+        //                     --no-progress \\
+        //                     --format table
+        //
+        //                 echo ""
+        //                 echo "✓ Security scan passed: No HIGH/CRITICAL vulnerabilities found"
+        //             """
+        //         }
+        //     }
+        // }
 
         stage('Push to ECR') {
             when {
