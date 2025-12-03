@@ -145,7 +145,6 @@ spec:
     }
 
     options {
-        timestamps()
         timeout(time: 1, unit: 'HOURS')
         buildDiscarder(logRotator(numToKeepStr: '30'))
     }
