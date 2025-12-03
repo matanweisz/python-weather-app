@@ -1,6 +1,6 @@
 import pytest
-from weather_app.src.data_parser import Parser
-from weather_app.src.weather import get_weather, WeatherData, DayWeather, make_data_ready
+from src.data_parser import Parser
+from src.weather import get_weather, WeatherData, DayWeather, make_data_ready
 
 @pytest.fixture
 def weather():

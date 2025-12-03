@@ -1,5 +1,5 @@
 import pytest
-from weather_app.src.data_parser import Parser
+from src.data_parser import Parser
 
 
 @pytest.fixture

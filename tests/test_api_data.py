@@ -1,5 +1,5 @@
 import pytest
-from weather_app.src.api_data import API
+from src.api_data import API
 
 
 @pytest.fixture

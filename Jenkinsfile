@@ -191,6 +191,7 @@ spec:
                     sh '''
                         pip install --quiet pytest
                         pip install --quiet -r requirements.txt
+                        export PYTHONPATH="${PYTHONPATH}:$(pwd)"
                         pytest tests/ -v
                     '''
                 }
@@ -373,7 +374,7 @@ Check console output for details.
         }
 
         always {
-            cleanWs(cleanWhenFailure: false)
+            deleteDir()
         }
     }
 }
