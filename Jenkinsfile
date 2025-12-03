@@ -24,7 +24,7 @@ spec:
   serviceAccountName: jenkins
   containers:
   - name: jnlp
-    image: jenkins/inbound-agent:latest-jdk17
+    image: jenkins/inbound-agent:latest-jdk21
     resources:
       requests:
         cpu: "100m"
