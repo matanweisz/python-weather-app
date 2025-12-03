@@ -200,8 +200,11 @@ spec:
 
         stage('Build Image') {
             steps {
-                script {
-                    env.IMAGE_TAG = "${BUILD_NUMBER}-${GIT_COMMIT.take(8)}"
+                container('git') {
+                    script {
+                        gitCommit = sh(script: 'git rev-parse --short=8 HEAD', returnStdout: true).trim()
+                        env.IMAGE_TAG = "${BUILD_NUMBER}-${gitCommit}"
+                    }
                 }
                 container('buildah') {
                     script {
