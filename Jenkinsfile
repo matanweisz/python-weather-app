@@ -200,12 +200,11 @@ spec:
 
         stage('Build Image') {
             steps {
+                script {
+                    env.IMAGE_TAG = "${BUILD_NUMBER}-${GIT_COMMIT.take(8)}"
+                }
                 container('buildah') {
                     script {
-                        // Set image tag with build number and git commit
-                        def gitCommit = sh(script: 'git rev-parse --short=8 HEAD', returnStdout: true).trim()
-                        env.IMAGE_TAG = "${BUILD_NUMBER}-${gitCommit}"
-
                         echo "Building image with tag: ${IMAGE_TAG}"
                         sh """
                             buildah --storage-driver \${STORAGE_DRIVER} bud \\
@@ -371,10 +370,6 @@ Build:        ${BUILD_NUMBER}
 
 Check console output for details.
 """
-        }
-
-        always {
-            deleteDir()
         }
     }
 }
