@@ -200,15 +200,16 @@ spec:
 
         stage('Build Image') {
             steps {
-                container('git') {
-                    script {
-                        gitCommit = sh(script: 'git rev-parse --short=8 HEAD', returnStdout: true).trim()
-                        env.IMAGE_TAG = "${BUILD_NUMBER}-${gitCommit}"
-                    }
+                script {
+                       scmVars = checkout scm
                 }
                 container('buildah') {
                     script {
+                        def gitCommitShort = scmVars.GIT_COMMIT.take(8)
+                        env.IMAGE_TAG = "${BUILD_NUMBER}-${gitCommitShort}"
+
                         echo "Building image with tag: ${IMAGE_TAG}"
+
                         sh """
                             buildah --storage-driver \${STORAGE_DRIVER} bud \\
                                 --format docker \\
