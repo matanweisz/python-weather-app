@@ -200,15 +200,9 @@ spec:
 
         stage('Build Image') {
             steps {
-                script {
-                    //def scmVars = checkout scm
-
-                    //def gitCommitShort = scmVars.GIT_COMMIT.take(8)
-                    env.IMAGE_TAG = "${BUILD_NUMBER}"
-
-                }
                 container('buildah') {
                     script {
+                        IMAGE_TAG = "${env.BRANCH_NAME}-${env.BUILD_NUMBER}"
                         echo "Building image with tag: ${IMAGE_TAG}"
 
                         sh """
